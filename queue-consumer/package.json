@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.201.0",
+    "got": "^12.5.2"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
