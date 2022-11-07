@@ -1,21 +1,33 @@
 import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
-const sqs = new SQSClient();
+var sqs;
 
-import got from 'got';
+if (process.env.QUEUE_REGION) {
+  console.log(`Using queue in region ${process.env.QUEUE_REGION}`)
+  sqs = new SQSClient({ region: process.env.QUEUE_REGION });
+} else {
+  sqs = new SQSClient();
+}
 
 const QUEUE_URL = process.env.COPILOT_QUEUE_URI;
 if (!QUEUE_URL) {
   throw new Error('COPILOT_QUEUE_URI environment variable must be set so that the worker knows what queue to watch');
 }
 
-const ECS_AGENT_URI = process.env.ECS_AGENT_URI;
-if (!ECS_AGENT_URI) {
-  throw new Error('ECS_AGENT_URI environment variable must be set. This is set automatically in an ECS task environment');
-}
+import ProtectionManager from './lib/protection-manager.js';
+const TaskProtection = new ProtectionManager({
+  // Protect task for 1 min at a time when protection is acquired
+  desiredProtectionDurationInMins: 1,
+  // If protection released early keep it going for a little while just in case another job arrives right away
+  maintainProtectionPercentage: 10,
+  // At the 80% mark go ahead and preemptively refresh the protection. This
+  // keeps protection going if a job arrives that takes too long to process
+  // so protection is going to expire before the job ends.
+  refreshProtectionPercentage: 80,
+  // Check every 10 seconds to see if protection state should be adjusted.
+  protectionAdjustIntervalInMs: 10 * 1000
+});
 
 const ONE_HOUR_IN_SECONDS = 60 * 60;
-const ONE_HOUR_IN_MINUTES = 60;
-const THIRTY_MINS_IN_MS = 30 * 60 * 1000;
 var timeToQuit = false;
 
 function maybeContinuePolling() {
@@ -31,7 +43,7 @@ async function receiveMessage() {
   // Get a message if there is a message waiting in SQS.
   var receiveMessageResponse;
   try {
-    console.log("Polling for messages");
+    console.log("Long polling for messages");
     receiveMessageResponse = await sqs.send(new ReceiveMessageCommand({
       QueueUrl: QUEUE_URL,
       MaxNumberOfMessages: 1,
@@ -40,7 +52,7 @@ async function receiveMessage() {
     }));
   } catch (e) {
     // Error response from the SQS service
-    console.error('Failed to receive messages because ', e);
+    console.error('Failed to receive messages because ', e.toString());
     return;
   }
 
@@ -60,40 +72,19 @@ async function deleteMessage(handle) {
       ReceiptHandle: handle
     }));
   } catch (e) {
-    console.error('Failed to delete handled message because ', e)
+    console.error('Failed to delete handled message because ', e.toString())
   }
-}
-
-async function enableTaskProtection() {
-  return await got.post(`${ECS_AGENT_URI}/task-protection/v1/state`, {
-    json: {
-      ProtectionEnabled: true,
-      ExpiresInMinutes: ONE_HOUR_IN_MINUTES
-    }
-  });
-}
-
-async function disableTaskProtection() {
-  return await got.post(`${ECS_AGENT_URI}/task-protection/v1/state`, {
-    json: {
-      ProtectionEnabled: false
-    }
-  });
 }
 
 async function pollForWork() {
-  try {
-    var response = await enableTaskProtection();
-  } catch (e) {
-    console.log('ECS did not allow task to protect itself because ', e);
-    timeToQuit = true;
-    return maybeContinuePolling();
-  }
-  console.log(response);
+  console.log('Acquiring task protection');
+  await TaskProtection.acquire();
 
   var message = await receiveMessage();
 
   if (!message) {
+    console.log('Releasing task protection');
+    await TaskProtection.release();
     return maybeContinuePolling();
   }
 
@@ -116,14 +107,28 @@ async function pollForWork() {
 
   console.log(`${message.MessageId} - Done`);
 
-  await disableTaskProtection();
+  console.log('Releasing task protection');
 
+  await TaskProtection.release();
   return maybeContinuePolling();
 }
 
 process.on('SIGTERM', () => {
   console.log('Received SIGTERM signal, will quit when all work is done');
   timeToQuit = true;
+});
+
+TaskProtection.on('rejected', (e) => {
+  if (e.response && e.response.body) {
+    console.log('Failed to acquire task protection because ', e.response.body);
+  } else {
+    console.log('Failed to acquire task protection because ', e.toString())
+  }
+  timeToQuit = true;
+});
+
+TaskProtection.on('unprotected', (e) => {
+  console.log('Task protection released');
 });
 
 setImmediate(pollForWork);

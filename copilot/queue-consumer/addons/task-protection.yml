@@ -1,0 +1,33 @@
+# You can use any of these parameters to create conditions or mappings in your template.
+Parameters:
+  App:
+    Type: String
+    Description: Your application's name.
+  Env:
+    Type: String
+    Description: The environment name your service, job, or workflow is being deployed to.
+  Name:
+    Type: String
+    Description: The name of the service, job, or workflow being deployed.
+
+Resources:
+
+  # Permission for the task to protect itself using the
+  # TaskProtection API for ECS
+  TaskProtectionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: TaskProtection
+            Effect: Allow
+            Action:
+              - ecs:UpdateTaskProtection
+              - ecs:GetTaskProtection
+            Resource: '*'
+
+Outputs:
+  TaskProtectionPolicyArn:
+    Description: "The ARN of the ManagedPolicy to attach to the task role."
+    Value: !Ref TaskProtectionPolicy

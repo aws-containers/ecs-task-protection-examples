@@ -2,6 +2,7 @@
   "type": "module",
   "dependencies": {
     "express": "^4.18.2",
+    "got": "^12.5.2",
     "ws": "^8.10.0"
   },
   "scripts": {
