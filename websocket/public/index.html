@@ -1,0 +1,52 @@
+<html>
+
+<body>
+</body>
+<script>
+  var interval;
+  var delay = 100;
+  var socket;
+
+  function print(text) {
+    document.body.innerHTML += text + '<br/>';
+  }
+
+  function ping() {
+    print('Client sent: "ping"');
+    socket.send('ping');
+  }
+
+  function socketSetup() {
+    print('Attempting to connect...');
+    socket = new WebSocket("ws://localhost");
+
+    socket.addEventListener('open', (event) => {
+      print('Connected!');
+      delay = 100;
+      interval = setInterval(ping, 2000);
+    });
+
+    socket.addEventListener('error', (event) => {
+      print('Error');
+      console.error(event);
+    });
+
+    socket.addEventListener('message', (event) => {
+      print('Server says: ' + JSON.stringify(event.data));
+    });
+
+    socket.addEventListener('close', (event) => {
+      print('Connection closed');
+      clearInterval(interval);
+      delay = delay * 2;
+      if (delay > 4000) {
+        delay = 4000; // Max delay between attempts of 4 seconds
+      }
+      setTimeout(socketSetup, delay);
+    });
+  }
+
+  socketSetup();
+</script>
+
+</html>
