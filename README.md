@@ -1,16 +1,47 @@
-aws configure add-model \
-   --service-model file://ecs-2014-11-13.normal.json \
-   --service-name ecsCustom
+# Elastic Container Service (ECS) Task Protection Examples
 
-ECS_GAMMA_ENDPOINT=https://madison.us-west-2.amazonaws.com
-ECS_GAMMA_REGION=us-west-2
-export ECS_GAMMA=(--endpoint $ECS_GAMMA_ENDPOINT --region $ECS_GAMMA_REGION ecsCustom)
-export ECSG=($ECS_GAMMA[@])
+This repository contains two sample applications that demonstrate
+the usage of the ECS task protection feature.
 
-aws $ECSG register-task-definition --cli-input-json file://queue-consumer.json
+## Prerequisites
 
-aws $ECSG create-service --cluster default --service-name queue-consumer --desired-count 2 --task-definition arn:aws:ecs:us-west-2:209640446841:task-definition/queue-consumer:1 --network-configuration "awsvpcConfiguration={subnets=[subnet-0b081bfbba1eb0da3],securityGroups=[ sg-058742c3846dd0438],assignPublicIp=ENABLED}"
+You should install AWS Copilot, as this is the official command line
+tool for Elastic Container Service, which will be used to deploy the
+demo applications.
 
-aws $ECSG list-services
+## Queue Consumer
 
-aws $ECSG describe-services --services arn:aws:ecs:us-west-2:209640446841:service/default/queue-consumer
+This application simulates a worker grabbing jobs off of an SQS queue.
+You can configure how long each simulated job takes by passing a duration
+in the body of the SQS message. The worker will set task protection on itself
+before and during each job, then release task protection after processing each job.
+
+Deploy with AWS Copilot by typing `copilot init` and make the following choices:
+
+```
+Use existing application: No
+Application name: task-protection
+Workload type: Worker Service
+Service name: queue-consumer
+Dockerfile: queue-consumer/Dockerfile
+```
+
+## Websocket Server
+
+This application simulates a persistent websocket connection server, such
+as a game server or chat server. While there are connected clients the
+process sets task protection on itself so that the server will not be
+prematurely terminated and break connections if the ECS service decides to
+scale in or do a rolling deployment.
+
+Deploy with AWS Copilot by typing `copilot init` and make the following choices.
+Note that if you have already created the `task-protection` application
+by deploying the queue consumer service then you can reuse that existing application.
+
+```
+Use existing application: No
+Application name: task-protection
+Workload type: Load Balanced Application
+Service name: websocket
+Dockerfile: websocket/Dockerfile
+```
