@@ -75,10 +75,10 @@ export default class ProtectionManager extends EventEmitter {
     }
 
     try {
-      /*await got(`${this.ECS_AGENT_URI}/task-protection/v1/state`, {
+      await got(`${this.ECS_AGENT_URI}/task-protection/v1/state`, {
         method: 'PUT',
         json: ecsAgentParams
-      });*/
+      });
     } catch (e) {
       return this.emit('rejected', e);
     }

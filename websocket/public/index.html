@@ -18,7 +18,7 @@
 
   function socketSetup() {
     print('Attempting to connect...');
-    socket = new WebSocket("ws://localhost");
+    socket = new WebSocket("ws://" + location.host);
 
     socket.addEventListener('open', (event) => {
       print('Connected!');
