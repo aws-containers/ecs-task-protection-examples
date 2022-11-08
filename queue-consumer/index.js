@@ -76,18 +76,8 @@ async function deleteMessage(handle) {
   }
 }
 
-async function pollForWork() {
-  console.log('Acquiring task protection');
-  await TaskProtection.acquire();
-
-  var message = await receiveMessage();
-
-  if (!message) {
-    console.log('Releasing task protection');
-    await TaskProtection.release();
-    return maybeContinuePolling();
-  }
-
+// Do the work for a single message.
+async function processMessage(message) {
   console.log(`${message.MessageId} - Received`);
 
   var waitPeriod = Number(message.Body);
@@ -106,6 +96,18 @@ async function pollForWork() {
   await deleteMessage(message.ReceiptHandle);
 
   console.log(`${message.MessageId} - Done`);
+}
+
+// Acquire task protection, grab a message, and then release protection
+async function pollForWork() {
+  console.log('Acquiring task protection');
+  await TaskProtection.acquire();
+
+  var message = await receiveMessage();
+
+  if (message) {
+    await processMessage(message);
+  }
 
   console.log('Releasing task protection');
 

@@ -36,6 +36,7 @@ export default class ProtectionManager extends EventEmitter {
     if (this.currentState == 'unprotected' &&
       this.desiredState == 'unprotected') {
       // Already unprotected so nothing to do right now.
+      this.emit(this.currentState);
       return;
     }
 
