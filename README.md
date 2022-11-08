@@ -13,15 +13,15 @@ Additionally you need to have Docker installed locally for building the containe
 Examples are written in Node.js but there is no need to have Node installed locally
 as all Node.js usage will happen inside the container image.
 
-## ProtectionManager
+## `ProtectionManager` class
 
-The code for both demo apps us based on the same JS wrapper class
+The code for both demo apps is utilizing the same JS wrapper class
 called [`ProtectionManager`](/queue-consumer/lib/protection-manager.js).
 
 This class is responsible for calling the ECS API on your behalf to set the task
 protection state.
 
-Usage:
+__Usage:__
 
 ```js
 import ProtectionManager from './lib/protection-manager.js';
@@ -47,7 +47,7 @@ const TaskProtection = new ProtectionManager({
 });
 ```
 
-The `ProtectionManager` class has the following methods that can be used
+Once instantiated the `ProtectionManager` has the following methods that can be used
 to acquire or release task protection based on what your application is doing:
 
 ```js
@@ -62,7 +62,15 @@ async function main() {
 }
 ```
 
-Additionally the  `ProtectionManager` class is an `EventEmitter` so you
+Note that for full usage of the `ProtectionManager` class your protected
+logic should not be event loop blocking. Ensure that you use asynchronous
+methods or yield back to the event loop by breaking heavy workload up into
+multiple smaller computational chunks with `setImmediate()`. This is necessary
+so that the background interval inside the `ProtectionManager` can trigger
+periodically to check if task protection needs to be extended during long
+running jobs.
+
+The `ProtectionManager` class is an `EventEmitter` so you
 can bind to the following events to run your own custom logic when
 task protection state changes:
 
@@ -209,3 +217,9 @@ similar to this:
 ```
 (service task-protection-test-websocket-Service-M9Q0bnYMjlQ4, taskSet ecs-svc/1888478596191510698) was unable to scale in due to (reason 1 tasks under protection)
 ```
+
+## Cleanup
+
+After you are done testing these demo applications you can use AWS Copilot to clean up
+your account by running `copilot app delete`. This will delete the `task-protection` application
+and both the `queue-worker` and `websocket` services deployed within the application.
