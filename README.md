@@ -5,16 +5,94 @@ the usage of the ECS task protection feature.
 
 ## Prerequisites
 
-You should install AWS Copilot, as this is the official command line
-tool for Elastic Container Service, which will be used to deploy the
-demo applications.
+To deploy these samples you must install [AWS Copilot](https://aws.github.io/copilot-cli/),
+the official command line tool for Elastic Container Service.
+
+Additionally you need to have Docker installed locally for building the container images.
+
+Examples are written in Node.js but there is no need to have Node installed locally
+as all Node.js usage will happen inside the container image.
+
+## ProtectionManager
+
+The code for both demo apps us based on the same JS wrapper class
+called [`ProtectionManager`](/queue-consumer/lib/protection-manager.js).
+
+This class is responsible for calling the ECS API on your behalf to set the task
+protection state.
+
+Usage:
+
+```js
+import ProtectionManager from './lib/protection-manager.js';
+const TaskProtection = new ProtectionManager({
+  // Duration to protect the task for each time task protection is
+  // set or refreshed
+  desiredProtectionDurationInMins: 5,
+
+  // If protection is released before X% of the duration has passed
+  // then keep the protection going. This is useful in case you have
+  // short duration jobs or a mix of short and long duration jobs, as
+  // there is a rate limit on often you can set and unset task protection.
+  maintainProtectionPercentage: 10,
+
+  // At the X% mark go ahead and preemptively refresh the protection. This
+  // keeps protection going if a particular job or socket connection takes too long
+  // so protection is going to expire too early. The manager class will
+  // automatically extend the protection at this point.
+  refreshProtectionPercentage: 80,
+
+  // How many ms to wait between checks
+  protectionAdjustIntervalInMs: 10 * 1000
+});
+```
+
+The `ProtectionManager` class has the following methods that can be used
+to acquire or release task protection based on what your application is doing:
+
+```js
+const TaskProtection = new ProtectionManager(settings);
+
+async function main() {
+  await TaskProtection.acquire();
+
+  // Do protected logic that you don't want to interrupt here
+
+  TaskProtection.release();
+}
+```
+
+Additionally the  `ProtectionManager` class is an `EventEmitter` so you
+can bind to the following events to run your own custom logic when
+task protection state changes:
+
+```js
+// Event triggers when task protection is acquired or
+// task protection duration is refreshed
+TaskProtection.on('protected', function() {
+
+});
+
+// Event triggers when task protection is released
+TaskProtection.on('unprotected', function() {
+
+});
+
+// This can happen if Amazon ECS rejects your attempt to protect
+// the task, which happens on rate limiting, or if a task blocks
+// a rolling deployment for an extended period of time.
+TaskProtection.on('rejected', function() {
+
+});
+```
 
 ## Queue Consumer
 
 This application simulates a worker grabbing jobs off of an SQS queue.
 You can configure how long each simulated job takes by passing a duration
 in the body of the SQS message. The worker will set task protection on itself
-before and during each job, then release task protection after processing each job.
+before and during the processing of each job, then release task protection
+after it finishes processing each job.
 
 Deploy with AWS Copilot by typing `copilot init` and make the following choices:
 
@@ -110,15 +188,15 @@ its own task protected from scale in. If you look at the server side logs
 for the application task you will messages similar to this:
 
 ```
-2022-11-07T16:53:26.124-05:00	New client connection opened. There are 1 connections	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:53:26.170-05:00	Task protection acquired	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:53:28.153-05:00	received: ping	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:53:30.153-05:00	received: ping	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:53:32.156-05:00	received: ping	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:53:32.451-05:00	Task protection acquired	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:53:34.156-05:00	received: ping	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:57:04.160-05:00	received: ping	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
-2022-11-07T16:57:05.557-05:00	Client connection closed. There are 0 connections	copilot/websocket/44c568b85b5f4cf2b81340cb4a05c7b9
+2022-11-07T16:53:26.124-05:00	New client connection opened. There are 1 connections
+2022-11-07T16:53:26.170-05:00	Task protection acquired
+2022-11-07T16:53:28.153-05:00	received: ping
+2022-11-07T16:53:30.153-05:00	received: ping
+2022-11-07T16:53:32.156-05:00	received: ping
+2022-11-07T16:53:32.451-05:00	Task protection acquired
+2022-11-07T16:53:34.156-05:00	received: ping
+2022-11-07T16:57:04.160-05:00	received: ping
+2022-11-07T16:57:05.557-05:00	Client connection closed. There are 0 connections
 2022-11-07T16:57:05.605-05:00	Task protection released
 ```
 
