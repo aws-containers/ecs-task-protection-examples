@@ -1,14 +1,17 @@
 <html>
 
 <body>
+  <textarea id='log' style="max-height: 500px; height: 500px; width: 800px; font-family: monospace;"></textarea>
 </body>
 <script>
   var interval;
   var delay = 100;
   var socket;
+  var log = document.getElementById('log');
 
   function print(text) {
-    document.body.innerHTML += text + '<br/>';
+    log.innerHTML += text + '\n';
+    log.scrollTop = log.scrollHeight;
   }
 
   function ping() {
