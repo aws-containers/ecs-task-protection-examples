@@ -150,7 +150,7 @@ When the queue consumer finishes the simulated 5 minute task it will release the
 task protection and ECS will then be able to stop the task. Alternatively you can
 force kill the task immediately by selecting it and using the "Stop" action in the dropdown.
 
-## Websocket Server
+## WebSocket Server
 
 This application simulates a persistent websocket connection server, such
 as a game server or chat server. While there are connected clients the
@@ -208,8 +208,7 @@ for the application task you will messages similar to this:
 2022-11-07T16:57:05.605-05:00	Task protection released
 ```
 
-To test out task protection open a browser tab to keep a connection open to the
-server. Then edit the service in the ECS console and adjust desired count to zero.
+To test out task protection open a browser tab to the service to open a websocket connection between your browser and the the server.  Then edit the service in the ECS console and adjust desired count to zero.
 Just as with the queue consumer service you will observe ECS waiting instead
 of immediately stopping the task. You will also see a message in the service events tab
 similar to this:
