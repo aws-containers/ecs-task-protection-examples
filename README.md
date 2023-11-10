@@ -1,7 +1,8 @@
 # Elastic Container Service (ECS) Task Protection Examples
 
 This repository contains two sample applications that demonstrate
-the usage of the ECS task protection feature.
+the usage of the ECS task protection feature. You can find detailed deployment
+instructions and other related resources at the [Containers on AWS pattern: "Background worker that gets jobs from an SQS queue"](https://containersonaws.com/pattern/background-worker-sqs-queue-container-copilot)
 
 ## Prerequisites
 
